@@ -1,3 +1,5 @@
+import os
+import argparse
 from flask import Flask, request, jsonify
 import traceback
 
@@ -42,4 +44,8 @@ def video_qa():
 
 
 if __name__ == '__main__':
-    app.run(debug=False, host="0.0.0.0", port=5000)
+    parser = argparse.ArgumentParser()
+    args = parser.parse_args()
+    local_rank = int(os.environ.get('LOCAL_RANK', 0))
+
+    app.run(debug=False, host="0.0.0.0", port=5000+local_rank)

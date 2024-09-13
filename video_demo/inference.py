@@ -1,3 +1,4 @@
+import os
 import io
 import numpy as np
 import torch
@@ -7,9 +8,13 @@ import argparse
 
 MODEL_PATH = "THUDM/cogvlm2-video-llama3-chat"
 
-DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
+if "LOCAL_RANK" not in os.environ:
+    DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
+else:
+    DEVICE = 'cuda:{}'.format(os.environ['LOCAL_RANK'])
 TORCH_TYPE = torch.bfloat16 if torch.cuda.is_available() and torch.cuda.get_device_capability()[
     0] >= 8 else torch.float16
+print('Torch type:', TORCH_TYPE)
 
 parser = argparse.ArgumentParser(description="CogVLM2-Video CLI Demo")
 parser.add_argument('--quant', type=int, choices=[4, 8], help='Enable 4-bit or 8-bit precision loading', default=0)
@@ -81,17 +86,18 @@ def predict(prompt, video_data, temperature):
         template_version=strategy
     )
     inputs = {
-        'input_ids': inputs['input_ids'].unsqueeze(0).to('cuda'),
-        'token_type_ids': inputs['token_type_ids'].unsqueeze(0).to('cuda'),
-        'attention_mask': inputs['attention_mask'].unsqueeze(0).to('cuda'),
-        'images': [[inputs['images'][0].to('cuda').to(TORCH_TYPE)]],
+        'input_ids': inputs['input_ids'].unsqueeze(0).to(DEVICE),
+        'token_type_ids': inputs['token_type_ids'].unsqueeze(0).to(DEVICE),
+        'attention_mask': inputs['attention_mask'].unsqueeze(0).to(DEVICE),
+        'images': [[inputs['images'][0].to(DEVICE).to(TORCH_TYPE)]],
     }
     gen_kwargs = {
-        "max_new_tokens": 2048,
+        # "max_new_tokens": 2048,
+        "max_new_tokens": 256,
         "pad_token_id": 128002,
-        "top_k": 1,
-        "do_sample": False,
-        "top_p": 0.1,
+        "top_k": 50,
+        "do_sample": True,
+        "top_p": 0.9,
         "temperature": temperature,
     }
     with torch.no_grad():
